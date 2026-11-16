@@ -67,6 +67,70 @@ def main():
 
         print("\nPrueba completada correctamente")
         print("No se modificaron archivos")
+        
+        import csv
+        import io
+        from datetime import datetime
+
+        def leer_tabla(nombre):
+            contenido = ejecutar([
+                "mdb-export", str(base), nombre
+            ])
+            return list(csv.DictReader(io.StringIO(contenido)))
+
+        print("\nBUSCANDO SUCESOS DE AVIONES...")
+
+        eventos = leer_tabla("events")
+        aeronaves = leer_tabla("aircraft")
+
+        # Identificar aeronaves de ala fija.
+        ids_aviones = set()
+
+        for avion in aeronaves:
+            tipo = avion.get("acft_category", "").strip().lower()
+
+            if tipo in ("airplane", "airplane - single engine",
+                        "airplane - multi engine"):
+                ids_aviones.add(avion.get("ev_id", ""))
+
+        resultados = []
+
+        for evento in eventos:
+            if evento.get("ev_id", "") not in ids_aviones:
+                continue
+
+            fecha = evento.get("ev_date", "").strip()
+
+            try:
+                fecha_orden = datetime.strptime(
+                    fecha[:10], "%m/%d/%y"
+                )
+            except ValueError:
+                try:
+                    fecha_orden = datetime.strptime(
+                        fecha[:10], "%Y-%m-%d"
+                    )
+                except ValueError:
+                    continue
+
+            resultados.append((fecha_orden, evento))
+
+        resultados.sort(key=lambda x: x[0], reverse=True)
+
+        print("\n10 SUCESOS MÁS RECIENTES:")
+
+        for fecha, evento in resultados[:10]:
+            print("------------------------------")
+            print("Fecha:", fecha.strftime("%d/%m/%Y"))
+            print("Expediente:", evento.get("ntsb_no", ""))
+            print("Tipo:", evento.get("ev_type", ""))
+            print("Ciudad:", evento.get("ev_city", ""))
+            print("Estado:", evento.get("ev_state", ""))
+            print("País:", evento.get("ev_country", ""))
+
+        print("\nTotal de sucesos de aviones:", len(resultados))
+        print("Prueba terminada. Sin publicaciones.")
+
 
 if __name__ == "__main__":
     main()
