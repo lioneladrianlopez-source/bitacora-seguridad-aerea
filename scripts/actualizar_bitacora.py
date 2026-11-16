@@ -82,6 +82,27 @@ def main():
 
         eventos = leer_tabla("events")
         aeronaves = leer_tabla("aircraft")
+        
+        from collections import Counter
+
+        print("\nDIAGNÓSTICO DE AERONAVES")
+        print("Total de registros:", len(aeronaves))
+
+        if aeronaves:
+            print("Columnas disponibles:")
+            print(list(aeronaves[0].keys()))
+
+            print("\nCategorías encontradas:")
+            categorias = Counter(
+                str(a.get("acft_category", "")).strip()
+                for a in aeronaves
+            )
+            for categoria, cantidad in categorias.most_common(20):
+                print(repr(categoria), cantidad)
+
+            print("\nPrimer registro de aeronave:")
+            print(aeronaves[0])
+
 
         # Identificar aeronaves de ala fija.
         ids_aviones = set()
