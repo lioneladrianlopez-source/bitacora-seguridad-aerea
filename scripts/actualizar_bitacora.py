@@ -123,17 +123,29 @@ def main():
 
             fecha = evento.get("ev_date", "").strip()
 
-            try:
-                fecha_orden = datetime.strptime(
-                    fecha[:10], "%m/%d/%y"
-                )
-            except ValueError:
+           
+            fecha_orden = None
+
+            for formato in (
+                "%m/%d/%y %H:%M:%S",
+                "%m/%d/%Y %H:%M:%S",
+                "%m/%d/%y",
+                "%m/%d/%Y",
+                "%Y-%m-%d %H:%M:%S",
+                "%Y-%m-%d"
+            ):
                 try:
                     fecha_orden = datetime.strptime(
-                        fecha[:10], "%Y-%m-%d"
+                        fecha, formato
                     )
+                    break
                 except ValueError:
                     continue
+
+            if fecha_orden is None:
+                print("Fecha no reconocida:", repr(fecha))
+                continue
+
 
             resultados.append((fecha_orden, evento))
 
