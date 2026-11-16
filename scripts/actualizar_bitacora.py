@@ -1,27 +1,13 @@
 
-
-from datetime import datetime, timezone
-from pathlib import Path
 import json
 import urllib.request
 
-def actualizar_bitacora():
-    print("BITÁCORA DE SEGURIDAD AÉREA")
-    print("Comprobación de fuentes oficiales")
-    print("Fecha UTC:", datetime.now(timezone.utc))
+API = (
+    "https://datos.jst.gob.ar/api/3/action/"
+    "package_show?id=sucesos-aeronauticos"
+)
 
-    if not Path("index.html").exists():
-        raise FileNotFoundError(
-            "No se encontró index.html"
-        )
-
-    url = (
-        "https://datos.jst.gob.ar/api/3/action/"
-        "package_show?id=sucesos-aeronauticos"
-    )
-
-    print("Consultando catálogo de la JST...")
-
+def descargar_json(url):
     solicitud = urllib.request.Request(
         url,
         headers={
@@ -29,67 +15,58 @@ def actualizar_bitacora():
             "Accept": "application/json"
         }
     )
+    with urllib.request.urlopen(
+        solicitud, timeout=60
+    ) as respuesta:
+        return json.load(respuesta)
 
-    try:
-        with urllib.request.urlopen(
-            solicitud, timeout=30
-        ) as respuesta:
-            datos = json.load(respuesta)
+def main():
+    print("BITÁCORA DE SEGURIDAD AÉREA")
+    print("Análisis de datos oficiales JST")
 
-        if not datos.get("success"):
-            raise ValueError(
-                "La API no confirmó la consulta"
-            )
+    catalogo = descargar_json(API)
 
-        recursos = datos["result"].get(
-            "resources", []
-        )
+    if not catalogo.get("success"):
+        raise ValueError("Error en catálogo JST")
 
-        print("Consulta completada")
-        print("Recursos encontrados:", len(recursos))
+    recursos = catalogo["result"]["resources"]
 
-        for recurso in recursos:
-            print(
-                recurso.get("name", "Sin nombre"),
-                recurso.get("format", ""),
-                recurso.get("url", "")
-            )
+    recurso = next(
+        (
+            r for r in recursos
+            if r.get("format", "").upper() == "JSON"
+        ),
+        None
+    )
 
-    except Exception as error:
-        print("No se pudo consultar la JST:")
-        print(type(error).__name__, str(error))
-        raise
+    if recurso is None:
+        raise ValueError("No se encontró recurso JSON")
 
-    print("Prueba finalizada")
+    print("Descargando datos oficiales...")
+    datos = descargar_json(recurso["url"])
+
+    print("Tipo de datos:", type(datos).__name__)
+
+    if isinstance(datos, list):
+        print("Total de registros:", len(datos))
+        registros = datos[:2]
+    elif isinstance(datos, dict):
+        print("Claves principales:", list(datos.keys()))
+        registros = [datos]
+    else:
+        raise ValueError("Formato no reconocido")
+
+    print("MUESTRA DE ESTRUCTURA:")
+    print(
+        json.dumps(
+            registros,
+            ensure_ascii=False,
+            indent=2
+        )[:6000]
+    )
+
+    print("Análisis completado")
     print("No se modificaron archivos")
 
 if __name__ == "__main__":
-    actualizar_bitacora()
-from datetime import datetime, timezone
-from pathlib import Path
-
-def actualizar_bitacora():
-    print("BITÁCORA DE SEGURIDAD AÉREA")
-    print("Iniciando sistema de actualización")
-
-    fecha = datetime.now(timezone.utc)
-    print("Fecha UTC:", fecha.isoformat())
-
-    archivo = Path("index.html")
-
-    if not archivo.exists():
-        raise FileNotFoundError(
-            "No se encontró index.html"
-        )
-
-    contenido = archivo.read_text(
-        encoding="utf-8"
-    )
-
-    print("Archivo principal encontrado")
-    print("Caracteres:", len(contenido))
-    print("Verificación inicial completada")
-    print("No se realizaron modificaciones")
-
-if __name__ == "__main__":
-    actualizar_bitacora()
+    main()
