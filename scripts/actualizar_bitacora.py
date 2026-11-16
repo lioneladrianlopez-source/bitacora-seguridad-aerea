@@ -1,72 +1,80 @@
 
-import json
+import subprocess
+import tempfile
 import urllib.request
+import zipfile
+from pathlib import Path
 
-API = (
-    "https://datos.jst.gob.ar/api/3/action/"
-    "package_show?id=sucesos-aeronauticos"
+URL_NTSB = (
+    "https://data.ntsb.gov/avdata/FileDirectory/"
+    "up15NOV.zip"
 )
 
-def descargar_json(url):
-    solicitud = urllib.request.Request(
-        url,
-        headers={
-            "User-Agent": "BitacoraSeguridadAerea/1.0",
-            "Accept": "application/json"
-        }
+def ejecutar(comando):
+    resultado = subprocess.run(
+        comando,
+        capture_output=True,
+        text=True,
+        check=True
     )
-    with urllib.request.urlopen(
-        solicitud, timeout=60
-    ) as respuesta:
-        return json.load(respuesta)
+    return resultado.stdout.strip()
 
 def main():
-    print("BITÁCORA DE SEGURIDAD AÉREA")
-    print("Análisis de datos oficiales JST")
+    print("BITÁCORA DE SEGURIDAD AÉREA", flush=True)
+    print("Prueba de lectura NTSB", flush=True)
 
-    catalogo = descargar_json(API)
+    with tempfile.TemporaryDirectory() as carpeta:
+        carpeta = Path(carpeta)
+        archivo_zip = carpeta / "ntsb.zip"
 
-    if not catalogo.get("success"):
-        raise ValueError("Error en catálogo JST")
+        print("Descargando archivo NTSB...", flush=True)
 
-    recursos = catalogo["result"]["resources"]
+        urllib.request.urlretrieve(
+            URL_NTSB,
+            archivo_zip
+        )
 
-    recurso = next(
-        (
-            r for r in recursos
-            if r.get("format", "").upper() == "JSON"
-        ),
-        None
-    )
+        if not zipfile.is_zipfile(archivo_zip):
+            raise ValueError("Descarga ZIP no válida")
 
-    if recurso is None:
-        raise ValueError("No se encontró recurso JSON")
+        with zipfile.ZipFile(archivo_zip) as z:
+            archivos = z.namelist()
+            print("Contenido ZIP:", archivos)
 
-    print("Descargando datos oficiales...")
-    datos = descargar_json(recurso["url"])
+            bases = [
+                nombre for nombre in archivos
+                if nombre.lower().endswith(".mdb")
+            ]
 
-    print("Tipo de datos:", type(datos).__name__)
+            if not bases:
+                raise ValueError("No se encontró MDB")
 
-    if isinstance(datos, list):
-        print("Total de registros:", len(datos))
-        registros = datos[:2]
-    elif isinstance(datos, dict):
-        print("Claves principales:", list(datos.keys()))
-        registros = [datos]
-    else:
-        raise ValueError("Formato no reconocido")
+            z.extract(bases[0], carpeta)
 
-    print("MUESTRA DE ESTRUCTURA:")
-    print(
-        json.dumps(
-            registros,
-            ensure_ascii=False,
-            indent=2
-        )[:6000]
-    )
+        base = carpeta / bases[0]
 
-    print("Análisis completado")
-    print("No se modificaron archivos")
+        print("Leyendo tablas...", flush=True)
+
+        tablas = ejecutar([
+            "mdb-tables", "-1", str(base)
+        ])
+
+        print("TABLAS ENCONTRADAS:")
+        print(tablas)
+
+        for tabla in tablas.splitlines()[:5]:
+            print("\nTABLA:", tabla)
+            print(
+                ejecutar([
+                    "mdb-schema",
+                    str(base),
+                    "postgres"
+                ])[:1500]
+            )
+            break
+
+        print("\nPrueba completada")
+        print("No se modificaron archivos")
 
 if __name__ == "__main__":
     main()
