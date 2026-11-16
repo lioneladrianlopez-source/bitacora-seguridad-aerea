@@ -1,79 +1,69 @@
 
 import subprocess
 import tempfile
-import urllib.request
 import zipfile
 from pathlib import Path
 
-URL_NTSB = (
-    "https://data.ntsb.gov/avdata/FileDirectory/"
-    "up15NOV.zip"
-)
+ZIP = Path("scripts/up15NOV.zip")
 
 def ejecutar(comando):
     resultado = subprocess.run(
         comando,
         capture_output=True,
         text=True,
-        check=True
+        check=True,
+        timeout=60
     )
     return resultado.stdout.strip()
 
 def main():
     print("BITÁCORA DE SEGURIDAD AÉREA", flush=True)
-    print("Prueba de lectura NTSB", flush=True)
+    print("Prueba local NTSB", flush=True)
 
-    with tempfile.TemporaryDirectory() as carpeta:
-        carpeta = Path(carpeta)
-        archivo_zip = carpeta / "ntsb.zip"
-
-        print("Descargando archivo NTSB...", flush=True)
-
-        urllib.request.urlretrieve(
-            URL_NTSB,
-            archivo_zip
+    if not ZIP.is_file():
+        raise FileNotFoundError(
+            f"No se encontró {ZIP}"
         )
 
-        if not zipfile.is_zipfile(archivo_zip):
-            raise ValueError("Descarga ZIP no válida")
+    with tempfile.TemporaryDirectory() as temporal:
+        carpeta = Path(temporal)
 
-        with zipfile.ZipFile(archivo_zip) as z:
-            archivos = z.namelist()
-            print("Contenido ZIP:", archivos)
-
+        with zipfile.ZipFile(ZIP) as archivo:
             bases = [
-                nombre for nombre in archivos
+                nombre for nombre in archivo.namelist()
                 if nombre.lower().endswith(".mdb")
             ]
 
-            if not bases:
-                raise ValueError("No se encontró MDB")
+            if len(bases) != 1:
+                raise ValueError(
+                    "Se esperaba una sola base MDB"
+                )
 
-            z.extract(bases[0], carpeta)
-
-        base = carpeta / bases[0]
-
-        print("Leyendo tablas...", flush=True)
+            with archivo.open(bases[0]) as origen:
+                base = carpeta / "datos.mdb"
+                with base.open("wb") as destino:
+                    import shutil
+                    shutil.copyfileobj(origen, destino)
 
         tablas = ejecutar([
             "mdb-tables", "-1", str(base)
-        ])
+        ]).splitlines()
 
-        print("TABLAS ENCONTRADAS:")
-        print(tablas)
+        print("TABLAS ENCONTRADAS:", flush=True)
+        for tabla in tablas:
+            print(tabla, flush=True)
 
-        for tabla in tablas.splitlines()[:5]:
-            print("\nTABLA:", tabla)
-            print(
-                ejecutar([
-                    "mdb-schema",
-                    str(base),
-                    "postgres"
-                ])[:1500]
-            )
-            break
+        if not tablas:
+            raise ValueError("No se encontraron tablas")
 
-        print("\nPrueba completada")
+        print("\nCOLUMNAS DE LA PRIMERA TABLA:")
+        print(
+            ejecutar([
+                "mdb-schema", str(base), "postgres"
+            ])[:5000]
+        )
+
+        print("\nPrueba completada correctamente")
         print("No se modificaron archivos")
 
 if __name__ == "__main__":
