@@ -185,6 +185,28 @@ def main():
                 print("Modelo:", avion.get("acft_model", ""))
                 print("Categoría:", avion.get("acft_category", ""))
 
+        
+        print("\nDIAGNÓSTICO DE NARRATIVAS")
+
+        narrativas = leer_tabla("narratives")
+
+        print("Total de narrativas:", len(narrativas))
+
+        if narrativas:
+            print("Columnas disponibles:")
+            print(list(narrativas[0].keys()))
+
+            print("\nPrimeros identificadores:")
+            for narrativa in narrativas[:3]:
+                print({
+                    clave: valor
+                    for clave, valor in narrativa.items()
+                    if clave.lower() in (
+                        "ev_id", "ntsb_no",
+                        "aircraft_key", "narr_type"
+                    )
+                })
+
         print("\nTotal de sucesos de aviones:", len(resultados))
         print("Prueba terminada. Sin publicaciones.")
 
