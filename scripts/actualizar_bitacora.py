@@ -207,6 +207,38 @@ def main():
                     )
                 })
 
+        
+        print("\nNARRATIVAS DE LOS 10 SUCESOS")
+
+        for fecha, evento in resultados[:10]:
+            identificador = evento.get("ev_id", "")
+            expediente = evento.get("ntsb_no", "")
+
+            relacionadas = [
+                n for n in narrativas
+                if n.get("ev_id", "") == identificador
+            ]
+
+            print("\n--------------------------")
+            print("Expediente:", expediente)
+            print("Fecha:", fecha.strftime("%d/%m/%Y"))
+            print("Narrativas encontradas:", len(relacionadas))
+
+            for narrativa in relacionadas:
+                for campo in (
+                    "narr_accp",
+                    "narr_accf",
+                    "narr_cause",
+                    "narr_inc"
+                ):
+                    contenido = narrativa.get(campo, "").strip()
+
+                    if contenido:
+                        print(
+                            campo + ":",
+                            contenido[:500].replace("\n", " ")
+                        )
+
         print("\nTotal de sucesos de aviones:", len(resultados))
         print("Prueba terminada. Sin publicaciones.")
 
