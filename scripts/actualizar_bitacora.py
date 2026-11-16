@@ -59,8 +59,10 @@ def main():
         print("\nCOLUMNAS DE LA PRIMERA TABLA:")
         print(
             ejecutar([
-                "mdb-schema", str(base), "postgres"
-            ])[:5000]
+    "mdb-export",
+    str(base),
+    "events"
+])[:3000]
         )
 
         print("\nPrueba completada correctamente")
