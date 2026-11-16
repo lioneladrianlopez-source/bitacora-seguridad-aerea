@@ -22,5 +22,5 @@ jobs:
         with:
           python-version: '3.12'
 
-            - name: Ejecutar actualización de Bitácora
+      - name: Ejecutar actualización de Bitácora
         run: python scripts/actualizar_bitacora.py
