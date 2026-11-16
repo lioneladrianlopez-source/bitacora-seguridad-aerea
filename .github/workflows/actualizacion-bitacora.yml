@@ -13,6 +13,7 @@ jobs:
   actualizar:
     runs-on: ubuntu-latest
 
+    
     steps:
       - name: Descargar repositorio
         uses: actions/checkout@v4
@@ -22,5 +23,11 @@ jobs:
         with:
           python-version: '3.12'
 
+      - name: Instalar lector de bases Access
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y mdbtools
+
       - name: Ejecutar actualización de Bitácora
         run: python scripts/actualizar_bitacora.py
+
