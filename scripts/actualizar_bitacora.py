@@ -107,15 +107,15 @@ def main():
         # Identificar aeronaves de ala fija.
         ids_aviones = set()
 
+        
         for avion in aeronaves:
             tipo = avion.get("acft_category", "").strip().lower()
 
-            
-         if tipo == "air":
+            if tipo == "air":
                 ids_aviones.add(avion.get("ev_id", ""))
 
-
         resultados = []
+
 
         for evento in eventos:
             if evento.get("ev_id", "") not in ids_aviones:
