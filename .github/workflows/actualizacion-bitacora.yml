@@ -22,6 +22,5 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Comprobar automatización
-        run: |
-          python -c "print('Bitácora: automatización operativa')"
+            - name: Ejecutar actualización de Bitácora
+        run: python scripts/actualizar_bitacora.py
