@@ -162,6 +162,29 @@ def main():
             print("Estado:", evento.get("ev_state", ""))
             print("País:", evento.get("ev_country", ""))
 
+        
+        print("\nDATOS DE LAS AERONAVES:")
+
+        for fecha, evento in resultados[:10]:
+            expediente = evento.get("ntsb_no", "")
+            identificador = evento.get("ev_id", "")
+
+            print("\n--------------------------")
+            print("Fecha:", fecha.strftime("%d/%m/%Y"))
+            print("Expediente:", expediente)
+
+            relacionadas = [
+                a for a in aeronaves
+                if a.get("ev_id", "") == identificador
+                and a.get("acft_category", "").strip().upper() == "AIR"
+            ]
+
+            for avion in relacionadas:
+                print("Matrícula:", avion.get("regis_no", ""))
+                print("Fabricante:", avion.get("acft_make", ""))
+                print("Modelo:", avion.get("acft_model", ""))
+                print("Categoría:", avion.get("acft_category", ""))
+
         print("\nTotal de sucesos de aviones:", len(resultados))
         print("Prueba terminada. Sin publicaciones.")
 
