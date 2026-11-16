@@ -110,9 +110,10 @@ def main():
         for avion in aeronaves:
             tipo = avion.get("acft_category", "").strip().lower()
 
-            if tipo in ("airplane", "airplane - single engine",
-                        "airplane - multi engine"):
+            
+         if tipo == "air":
                 ids_aviones.add(avion.get("ev_id", ""))
+
 
         resultados = []
 
