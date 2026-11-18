@@ -336,6 +336,24 @@ def encabezado_actualizacion(portada, fecha):
     return portada
 
 
+def compactar_portada(portada):
+    def tarjeta(coincidencia):
+        bloque = coincidencia[0]
+        actualizada = re.search(r"Actualización: ([0-9-]+)", bloque)
+        bloque = re.sub(r"<p\\b[^>]*>.*?</p>", "", bloque, flags=re.S)
+        bloque = re.sub(r"(<a\\b[^>]*>).*?(</a>)", lambda m: m[1] + "Leer artículo →" + m[2], bloque, flags=re.S)
+        bloque = re.sub(r'(<span class="tag">)(.*?)(</span>)',
+                        lambda m: m[1] + (actualizada[1] if actualizada else m[2].split("·")[0].strip()) + m[3],
+                        bloque, flags=re.S)
+        return bloque
+    def seccion(m):
+        return re.sub(r'<div class="card">.*?</div>', tarjeta, m[0], flags=re.S)
+    portada = re.sub(r'<h2 id="semanal".*?(?=<h2 class="section" id="accidentes">)',
+                     seccion, portada, flags=re.S)
+    return re.sub(re.escape(INICIO_AUTO) + r".*?" + re.escape(FIN_AUTO),
+                  seccion, portada, flags=re.S)
+
+
 def publicar_ntsb(raiz, datos, hoy):
     indice = raiz / "index.html"
     portada = indice.read_text(encoding="utf-8")
@@ -376,13 +394,17 @@ def publicar_ntsb(raiz, datos, hoy):
         if nueva_portada != portada:
             portada = nueva_portada
             cambios += 1
+    compacta = compactar_portada(portada)
+    if compacta != portada:
+        portada = compacta
+        cambios += 1
     if not cambios:
         print("Publicación: sin cambios; no se modificó el sitio.")
         return
     tarjetas = []
     for a in sorted(guardados.values(), key=lambda a: (a["actualizado"], a["fecha"], a["expediente"]), reverse=True):
         e = lambda campo: escape(str(a[campo]))
-        tarjetas.append(f'<div class="card"><span class="tag">{e("categoria")} · {e("estado")}</span><h3>{e("titulo")}</h3><p>Suceso: {e("fecha")} · Actualización: {e("actualizado")}</p><p>{e("lugar")}</p><a href="articulos/ntsb-{e("expediente")}.html">Leer expediente →</a></div>')
+        tarjetas.append(f'<div class="card"><span class="tag">{e("actualizado")}</span><h3>{e("titulo")}</h3><a href="articulos/ntsb-{e("expediente")}.html">Leer artículo →</a></div>')
     bloque = INICIO_AUTO + '<section id="automaticas"><h2 class="section">Últimas publicaciones · NTSB</h2><p>Transporte aéreo comercial y accidentes fatales de aviación general. Ordenados por actualización; la fecha del suceso figura por separado.</p><div class="grid">' + "\n".join(tarjetas) + '</div></section>' + FIN_AUTO
     if INICIO_AUTO in portada:
         if portada.count(INICIO_AUTO) != 1 or portada.count(FIN_AUTO) != 1:
