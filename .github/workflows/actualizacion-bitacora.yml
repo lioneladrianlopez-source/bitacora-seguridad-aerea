@@ -36,7 +36,7 @@ jobs:
       - name: Preparar Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.12'
+          python-version: '3.11'
       - name: Comprobar sintaxis
         run: python -m py_compile scripts/actualizar_bitacora.py
       - name: Instalar lector de bases Access
@@ -44,11 +44,25 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y mdbtools
+      - name: Instalar traductor al castellano
+        if: github.event_name != 'push'
+        run: python -m pip install argostranslate==1.11.1
+      - name: Reutilizar modelos de traducción
+        if: github.event_name != 'push'
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.local/share/argos-translate
+            ~/.local/cache/argos-translate
+            ~/.cache/argos-translate
+          key: argos-en-es-1.11.1-${{ runner.os }}
+      - name: Actualizar idioma de los artículos guardados
+        if: github.event_name == 'push'
+        run: python scripts/actualizar_bitacora.py --solo-idioma
       - name: Generar artículos y actualizar portada
         if: github.event_name != 'push'
         run: python scripts/actualizar_bitacora.py --publicar
       - name: Guardar publicaciones en GitHub
-        if: github.event_name != 'push'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
