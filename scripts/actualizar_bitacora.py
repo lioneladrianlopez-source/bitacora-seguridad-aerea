@@ -390,7 +390,7 @@ def publicar_ntsb(raiz, datos, hoy):
             cambios += int(a["expediente"] not in modificados)
     if guardados:
         nueva_portada = encabezado_actualizacion(
-            portada, max(a["actualizado"] for a in guardados.values()))
+            portada, hoy.isoformat())
         if nueva_portada != portada:
             portada = nueva_portada
             cambios += 1
