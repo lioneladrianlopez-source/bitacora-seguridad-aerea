@@ -1,4 +1,3 @@
-
 name: Actualización de Bitácora
 
 on:
@@ -9,25 +8,41 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: publicacion-bitacora
+  cancel-in-progress: false
+
 jobs:
   actualizar:
     runs-on: ubuntu-latest
-
-    
+    timeout-minutes: 15
     steps:
       - name: Descargar repositorio
         uses: actions/checkout@v4
-
+        with:
+          ref: main
       - name: Preparar Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-
+      - name: Comprobar sintaxis
+        run: python -m py_compile scripts/actualizar_bitacora.py
       - name: Instalar lector de bases Access
         run: |
           sudo apt-get update
           sudo apt-get install -y mdbtools
-
-      - name: Ejecutar actualización de Bitácora
-        run: python scripts/actualizar_bitacora.py
-
+      - name: Generar artículos y actualizar portada
+        run: python scripts/actualizar_bitacora.py --publicar
+      - name: Guardar publicaciones en GitHub
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          if [ -d articulos ]; then git add articulos; fi
+          if [ -d data ]; then git add data; fi
+          if git diff --cached --quiet; then
+            echo "No hay publicaciones nuevas ni actualizaciones."
+            exit 0
+          fi
+          git commit -m "Publicar novedades NTSB con filtro editorial"
+          git push origin HEAD:main
