@@ -4,9 +4,18 @@ on:
   schedule:
     - cron: '0 23 * * *'
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '**.html'
+      - 'assets/**'
+      - 'scripts/actualizar_bitacora.py'
+      - '.github/workflows/actualizacion-bitacora.yml'
 
 permissions:
   contents: write
+  pages: write
+  id-token: write
 
 concurrency:
   group: publicacion-bitacora
@@ -16,6 +25,9 @@ jobs:
   actualizar:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - name: Descargar repositorio
         uses: actions/checkout@v4
@@ -28,12 +40,15 @@ jobs:
       - name: Comprobar sintaxis
         run: python -m py_compile scripts/actualizar_bitacora.py
       - name: Instalar lector de bases Access
+        if: github.event_name != 'push'
         run: |
           sudo apt-get update
           sudo apt-get install -y mdbtools
       - name: Generar artículos y actualizar portada
+        if: github.event_name != 'push'
         run: python scripts/actualizar_bitacora.py --publicar
       - name: Guardar publicaciones en GitHub
+        if: github.event_name != 'push'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -46,3 +61,30 @@ jobs:
           fi
           git commit -m "Publicar novedades NTSB con filtro editorial"
           git push origin HEAD:main
+      - name: Preparar archivos públicos
+        shell: python
+        run: |
+          from pathlib import Path
+          import shutil
+          raiz = Path(".")
+          salida = raiz / "_site"
+          salida.mkdir(exist_ok=True)
+          for patron in ("*.html", "*.css", "*.js", "*.ico", "*.png", "*.jpg", "*.jpeg", "*.svg", "*.webp", "*.txt", "*.xml", "*.webmanifest"):
+              for archivo in raiz.glob(patron):
+                  shutil.copy2(archivo, salida / archivo.name)
+          for nombre in ("articulos", "assets", "css", "js", "images", "imagenes", "img", "fonts"):
+              origen = raiz / nombre
+              if origen.is_dir():
+                  shutil.copytree(origen, salida / nombre, dirs_exist_ok=True)
+          if not (salida / "index.html").is_file():
+              raise SystemExit("Falta index.html; se cancela la publicación.")
+          (salida / ".nojekyll").touch()
+      - name: Configurar GitHub Pages
+        uses: actions/configure-pages@v5
+      - name: Preparar publicación
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: _site
+      - name: Publicar en GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
