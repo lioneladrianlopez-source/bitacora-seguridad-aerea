@@ -321,6 +321,21 @@ def pagina_articulo(a, estilos):
 </article></main><footer>Conocer los hechos para volar más seguros</footer></body></html>\n'''
 
 
+def encabezado_actualizacion(portada, fecha):
+    meses = ("enero", "febrero", "marzo", "abril", "mayo", "junio",
+             "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre")
+    dia = datetime.fromisoformat(fecha).date()
+    etiqueta = f"Última actualización · {dia.day} de {meses[dia.month - 1]} de {dia.year}"
+    portada = re.sub(r'(<h2 id="semanal" class="section">).*?(</h2>)',
+                     lambda m: m[1] + etiqueta + m[2], portada, count=1, flags=re.S)
+    portada = portada.replace('href="index.html#semanal">Resumen semanal</a>',
+                              'href="index.html#semanal">Última actualización</a>')
+    portada = portada.replace(
+        "Selección de novedades de la semana. Cada entrada enlaza a su expediente dentro de la categoría correspondiente.",
+        "Selección de publicaciones y actualizaciones. Cada entrada enlaza a su expediente dentro de la categoría correspondiente.")
+    return portada
+
+
 def publicar_ntsb(raiz, datos, hoy):
     indice = raiz / "index.html"
     portada = indice.read_text(encoding="utf-8")
@@ -355,6 +370,12 @@ def publicar_ntsb(raiz, datos, hoy):
         if preparar_castellano(a):
             a["actualizado"] = hoy.isoformat()
             cambios += int(a["expediente"] not in modificados)
+    if guardados:
+        nueva_portada = encabezado_actualizacion(
+            portada, max(a["actualizado"] for a in guardados.values()))
+        if nueva_portada != portada:
+            portada = nueva_portada
+            cambios += 1
     if not cambios:
         print("Publicación: sin cambios; no se modificó el sitio.")
         return
