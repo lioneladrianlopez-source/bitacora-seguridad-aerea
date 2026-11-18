@@ -8,6 +8,7 @@ import subprocess
 import tempfile
 import zipfile
 import hashlib
+from collections import Counter
 from html import escape
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -250,10 +251,55 @@ def articulos_ntsb(eventos, aeronaves, narrativas, hoy):
     return sorted(articulos, key=lambda a: (a["fecha"], a["expediente"]), reverse=True)
 
 
+TRADUCCIONES_REVISADAS = {'df742a0f82d20d696153f77f82a61ba6661cae2f30bf249f0570c384ee5d7826': 'El 24 de octubre de 2026, aproximadamente a las 08:22, hora de verano de la zona montañosa, un avión Piper PA-28-235, matrícula N8777W, resultó destruido en un accidente cerca de Gunnison, Colorado. El piloto y los dos pasajeros sufrieron lesiones fatales. La aeronave realizaba un vuelo personal conforme a la Parte 91 del Título 14 del Código de Reglamentos Federales de Estados Unidos.\n\nSegún la información preliminar, el piloto había previsto despegar el 23 de octubre de 2026 para realizar un vuelo bajo reglas de vuelo visual desde el aeropuerto Rifle Garfield County (RIL), en Rifle, Colorado, hasta el aeropuerto regional Gunnison-Crested Butte (GUC), en Gunnison, Colorado. Posteriormente cambió la salida al 24 de octubre debido a un compromiso personal con los pasajeros. El piloto sabía que el 23 de octubre el tiempo estaría «despejado», pero para el vuelo del 24 quería salir «muy temprano por la mañana», porque consideraba que entonces estaría «despejado». El 24 de octubre, a las 07:46, el vuelo partió de RIF —identificador consignado así en el relato original— sin plan de vuelo y no recibió servicios de control de tránsito aéreo durante el trayecto a GUC.\n\nLos datos ADS-B mostraron que el avión seguía una trayectoria hacia el sudeste desde RIL, aproximadamente a 1 milla náutica (nm) al oeste de la cadena montañosa Anthracite, a unos 10.000 pies sobre el nivel medio del mar (MSL). Luego efectuó un viraje a la izquierda de aproximadamente 270° hacia el oeste, a unos 9.500 pies MSL, seguido por un viraje a la derecha hacia el noroeste. El informe original remite a su figura 1, correspondiente a la trayectoria ADS-B; esa imagen no se reproduce aquí.\n\nUn testigo que estaba cazando en la zona declaró que se encontraba entre 9.300 y 9.500 pies MSL cuando el avión pasó hacia el norte y, por su sonido, parecía volar «muy bajo». Estimó que se encontraba a unos 100 pies sobre el terreno (AGL) y a unos 300 a 400 pies de su posición, y afirmó que «no había forma de que [el avión] superara los Anthracites». Dijo que la visibilidad «no era muy buena» y se preguntó por qué el piloto volaba ese día. Oyó al avión atravesar el valle y realizar «un par de vueltas», y no sabía si el piloto estaba explorando las cuencas para encontrar un paso a través de la cadena montañosa. Agregó que las cumbres estaban bastante cubiertas de nubes, aunque estas no cubrían las copas de los árboles.\n\nUn segundo testigo, situado a varios cientos de yardas del lugar del accidente, dijo que estaba observando el paso de montaña cuando vio al avión sobrevolarlo y pasar detrás de él mientras efectuaba un viraje. Parecía que iba a cruzar nuevamente el paso, donde había nubes y algo de nieve. Mientras lo observaba, podía oírlo. Declaró que parecía «caer en vertical» y que oyó «aumentar las revoluciones del motor» durante el descenso. Según su relato, el avión parecía haber efectuado un viraje de 180° y estar regresando cuando cayó en vertical. Añadió que apenas logró superar el paso y que, segundos después, salió de las nubes y descendió directamente. Afirmó que, durante todo el tiempo que oyó u observó la aeronave, esta «sonaba bien».\n\nEl lugar del accidente se encontraba aproximadamente a 18 nm al noroeste de GUC. La inspección reveló una trayectoria de restos entre los árboles orientada aproximadamente a 102°, a una elevación de unos 10.400 pies MSL. Todos los componentes principales del avión fueron localizados en el lugar. Las alas se habían separado del fuselaje de una manera compatible con impactos contra árboles y terreno; el fuselaje estaba orientado aproximadamente a 137°, medidos de la cola hacia la nariz. El motor se había separado de la estructura y las palas de la hélice presentaban torsiones y dobleces en forma de S.\n\nLos restos de la aeronave fueron retenidos para continuar su examen.\n\nEl pronóstico de aeródromo para GUC —elevación del aeropuerto: 7.680 pies MSL—, emitido a las 05:20 y válido el 24 de octubre de 2026 desde las 06:00, indicaba visibilidad superior a 6 millas terrestres (sm) y un techo de 15.000 pies AGL. Entre las 07:00 y las 10:00 se pronosticaban fluctuaciones temporarias: visibilidad de 4 sm, chaparrones y lluvia de intensidad débil, y techo con nubosidad fragmentada a 5.000 pies AGL.\n\nLas observaciones meteorológicas de GUC registraron:\nA las 05:56: visibilidad de 10 sm y cielo despejado.\nA las 06:56: visibilidad de 10 sm, pocas nubes a 7.500 pies AGL y nubosidad dispersa a 12.000 pies AGL.\nA las 07:56: visibilidad de 6 sm, lluvia moderada y neblina, con techo de nubosidad fragmentada a 3.200 pies AGL y cielo cubierto a 4.400 pies AGL.\n\nDe acuerdo con los registros del piloto, el 3 de abril de 2024 obtuvo su licencia de piloto privado con habilitación para avión monomotor terrestre. Realizó su revisión de vuelo más reciente el 18 de abril de 2026 y, al momento del accidente, había acumulado unas 278 horas de vuelo.'}
+
+
+def traducir_relato(original):
+    huella = hashlib.sha256(original.encode("utf-8")).hexdigest()
+    if huella in TRADUCCIONES_REVISADAS:
+        return TRADUCCIONES_REVISADAS[huella], "Traducción revisada"
+    import argostranslate.package
+    import argostranslate.translate
+    instalados = argostranslate.package.get_installed_packages()
+    if not any(p.from_code == "en" and p.to_code == "es" for p in instalados):
+        argostranslate.package.update_package_index()
+        paquete = next((p for p in argostranslate.package.get_available_packages()
+                        if p.from_code == "en" and p.to_code == "es"), None)
+        if paquete is None:
+            raise ValueError("No se encontró el modelo de traducción al castellano")
+        argostranslate.package.install_from_path(paquete.download())
+    traducido = argostranslate.translate.translate(original, "en", "es").strip()
+    if not traducido or traducido == original or len(traducido) < len(original) * 0.5:
+        raise ValueError("Traducción incompleta; se cancela la publicación")
+    # Ante cambios de cifras, conservar la versión publicada y pedir revisión.
+    cifras = lambda t: Counter(re.sub(r"[,.]", "", n) for n in re.findall(r"\d+(?:[,.]\d+)*", t))
+    if cifras(original) != cifras(traducido):
+        raise ValueError("La traducción alteró cifras; se cancela la publicación para revisión")
+    return traducido, "Traducción automática"
+
+
+def preparar_castellano(a):
+    huella = hashlib.sha256(a["relato"].encode("utf-8")).hexdigest()
+    cambio = False
+    if not a.get("relato_es") or a.get("traduccion_fuente") != huella:
+        a["relato_es"], a["traduccion_tipo"] = traducir_relato(a["relato"])
+        a["traduccion_fuente"] = huella
+        cambio = True
+    if a.get("version_idioma") != 2:
+        a["version_idioma"] = 2
+        a["lugar"] = a["lugar"].replace(", CO, USA", ", Colorado, Estados Unidos").replace(", USA", ", Estados Unidos")
+        cambio = True
+    return cambio
+
+
 def pagina_articulo(a, estilos):
     e = lambda campo: escape(str(a[campo]))
     fatal = "No informado" if a["fatales"] is None else str(a["fatales"])
-    parrafos = "".join('<p>' + escape(p) + '</p>' for p in re.split(r"\n\s*\n", a["relato"]) if p.strip())
+    if not a.get("relato_es"):
+        raise ValueError("No se puede publicar un relato sin traducción al castellano")
+    formatear = lambda t: "".join('<p>' + escape(p).replace('\n', '<br>') + '</p>' for p in re.split(r"\n\s*\n", t) if p.strip())
+    parrafos = formatear(a["relato_es"])
+    original = formatear(a["relato"])
     nota = ("La información es preliminar y puede cambiar. No establece una causa probable."
             if a["prioridad"] == 1 else "Se reproduce la narrativa final disponible; las conclusiones y la causa probable deben consultarse en el expediente oficial.")
     return f'''<!doctype html><html lang="es"><head><meta charset="utf-8">
@@ -265,9 +311,11 @@ def pagina_articulo(a, estilos):
 <p><strong>Fecha del suceso:</strong> {e('fecha')}<br><strong>Lugar:</strong> {e('lugar')}<br>
 <strong>Aeronave:</strong> {e('modelos')}<br><strong>Víctimas fatales informadas:</strong> {fatal}</p>
 <p><strong>Publicado:</strong> {e('publicado')} · <strong>Actualizado:</strong> {e('actualizado')}</p></div>
-<p>{nota}</p><h2>Relato oficial de NTSB</h2>
-<p>Texto original en inglés. La ficha en castellano presenta los datos estructurados del suceso.</p>
-<section lang="en" class="card" style="overflow-wrap:anywhere">{parrafos}</section>
+<p>{nota}</p><h2>Relato del suceso en castellano</h2>
+<p>{escape(a.get('traduccion_tipo', 'Traducción al castellano'))} del texto de NTSB. Ante una discrepancia, prevalece el documento oficial.</p>
+<section lang="es" class="card" style="overflow-wrap:anywhere">{parrafos}</section>
+<details class="card" style="margin-top:20px"><summary style="cursor:pointer;font-weight:700">Leer texto original (inglés)</summary>
+<section lang="en" style="overflow-wrap:anywhere">{original}</section></details>
 <p><a href="{e('fuente')}">Buscar el expediente {e('expediente')} en NTSB CAROL</a></p>
 <p><a href="https://data.ntsb.gov/avdata/filedirectory">Base oficial utilizada</a> · Consulta: {e('actualizado')}</p>
 </article></main><footer>Conocer los hechos para volar más seguros</footer></body></html>\n'''
@@ -287,6 +335,7 @@ def publicar_ntsb(raiz, datos, hoy):
     editoriales = "\n".join(p.read_text(encoding="utf-8") for p in raiz.glob("*.html") if p.name != "index.html")
     nuevos = 0
     cambios = 0
+    modificados = set()
     for a in articulos_ntsb(*datos, hoy):
         exp = a["expediente"]
         previo = guardados.get(exp)
@@ -301,6 +350,11 @@ def publicar_ntsb(raiz, datos, hoy):
         guardados[exp] = a
         nuevos += int(previo is None)
         cambios += 1
+        modificados.add(exp)
+    for a in guardados.values():
+        if preparar_castellano(a):
+            a["actualizado"] = hoy.isoformat()
+            cambios += int(a["expediente"] not in modificados)
     if not cambios:
         print("Publicación: sin cambios; no se modificó el sitio.")
         return
@@ -333,8 +387,12 @@ def main():
     parser = argparse.ArgumentParser(description="Revisar candidatos para la Bitácora.")
     parser.add_argument("--ntsb-zip", type=Path, help="Usar un ZIP local de NTSB para pruebas.")
     parser.add_argument("--publicar", action="store_true", help="Generar artículos y actualizar la portada.")
+    parser.add_argument("--solo-idioma", action="store_true", help="Traducir los artículos guardados sin consultar nuevas fuentes.")
     args = parser.parse_args()
     hoy = datetime.now(ZoneInfo("America/Argentina/Buenos_Aires")).date()
+    if args.solo_idioma:
+        publicar_ntsb(Path(__file__).resolve().parents[1], ([], [], []), hoy)
+        return
     fuentes = (("NTSB", revisar_ntsb, (hoy, args.ntsb_zip)), ("JST", revisar_jst, (hoy,)))
     if args.publicar:
         # JST todavía no genera artículos: una consulta ajena no debe bloquear NTSB.
